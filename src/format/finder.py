@@ -22,7 +22,6 @@ class Finder:
 
     def fuzzy_find_dir(self, directory_path: Union[str, Path] = ".") -> Optional[Path]:
         """Prompts the user to fuzzy search for a file in the directory."""
-        print(f"Scanning directory: {directory_path}...")
         files = self.get_all_dirs(directory_path)
 
         if not files:

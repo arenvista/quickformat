@@ -14,7 +14,8 @@ class Formater:
         self,
         model: str = "gpt-5",
         max_file_chars: int = 30000,
-        exclude_dirs: set|None = None
+        exclude_dirs: set|None = None,
+        template: Path|None = None
     ):
         # Ensure you have OPENAI_API_KEY set in your environment variables
         self.client = OpenAI()
@@ -24,14 +25,18 @@ class Formater:
         # Default directories to ignore (e.g., virtual environments, caches, git)
         self.exclude_dirs = exclude_dirs or {".venv", "venv", "env", "__pycache__", ".git", ".tox"}
 
-        self.summary_prompt = (
-            "Read the provided markdown contents and run: clean, split into sections by header, title unnamed theorems, topics, sections etc.\n\n" 
-            "Formatting Rules:\n\n"
-            "- Use $$ $$ for display math.\n\n"
-            "- Use $ $ if better formatted inline.\n\n"
-            "- Use Markdown blockquote callouts (e.g., > [!thm] Title) when appropriate.\n\n"
-            "- Focus on generating named headers and subheaders\n\n"
-        )
+        if template == None:
+            self.summary_prompt = (
+                "Read the provided markdown contents and run: clean, split into sections by header, title unnamed theorems, topics, sections etc.\n\n" 
+                "Formatting Rules:\n\n"
+                "- Use $$ $$ for display math.\n\n"
+                "- Use $ $ if better formatted inline.\n\n"
+                "- Use Markdown blockquote callouts (e.g., > [!thm] Title) when appropriate.\n\n"
+                "- Focus on generating named headers and subheaders\n\n"
+            )
+        else:
+            with open (template, 'r') as infile:
+                self.summary_prompt = infile.read()
 
     def get_target_files(self, filetype: str, root: Path) -> list:
         """Recursively finds .py files while explicitly ignoring specified directories."""
@@ -107,7 +112,6 @@ class Formater:
                 f.write(f"{summary}")
     def run(self):
         """Main orchestrator for the analysis process."""
-        print("Initializing Summary State")
         finder = Finder()
         print("Enter input files dir:")
         root = finder.fuzzy_find_dir()
@@ -122,6 +126,7 @@ class Formater:
             return
 
         print(f"Found {len(files)} files to summarize.\n\t" + "\n\t".join(files))
+        print(f"Summary Prompt => {self.summary_prompt}")
 
         self.summarize_files(files, outdir, root)
         print("Done!")
