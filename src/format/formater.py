@@ -2,8 +2,9 @@ import os
 from pathlib import Path
 from openai import OpenAI
 from tqdm import tqdm
-from .finder import Finder
 
+from format.finder import Finder
+from format.model_settings import ModelSettings
 
 class Formater:
     """
@@ -12,10 +13,12 @@ class Formater:
 
     def __init__(
         self,
-        model: str = "gpt-5",
+        model: str = "gpt-4o", # Adjusted placeholder
         max_file_chars: int = 30000,
         exclude_dirs: set|None = None,
-        template: Path|None = None
+        template: Path|None = None,
+        model_effort: ModelSettings|None = ModelSettings.MEDIUM,
+        model_verbosity: ModelSettings|None = ModelSettings.MEDIUM
     ):
         # Ensure you have OPENAI_API_KEY set in your environment variables
         self.client = OpenAI()
@@ -25,7 +28,7 @@ class Formater:
         # Default directories to ignore (e.g., virtual environments, caches, git)
         self.exclude_dirs = exclude_dirs or {".venv", "venv", "env", "__pycache__", ".git", ".tox"}
 
-        if template == None:
+        if template is None:
             self.summary_prompt = (
                 "Read the provided markdown contents and run: clean, split into sections by header, title unnamed theorems, topics, sections etc.\n\n" 
                 "Formatting Rules:\n\n"
@@ -35,14 +38,16 @@ class Formater:
                 "- Focus on generating named headers and subheaders\n\n"
             )
         else:
-            with open (template, 'r') as infile:
+            with open(template, 'r') as infile:
                 self.summary_prompt = infile.read()
+                
+        self.model_effort = model_effort or ModelSettings.MEDIUM
+        self.model_verbosity = model_verbosity or ModelSettings.MEDIUM
 
     def get_target_files(self, filetype: str, root: Path) -> list:
-        """Recursively finds .py files while explicitly ignoring specified directories."""
+        """Recursively finds files while explicitly ignoring specified directories."""
         valid_files = []
         for p in root.rglob(f"*.{filetype}"):
-            # Exclude matching directories and files with 'api' in their path
             if p.is_file() and not any(part in self.exclude_dirs for part in p.parts) and "api" not in str(p):
                 valid_files.append(p)
         return valid_files
@@ -65,38 +70,19 @@ class Formater:
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": content},
                 ],
-                reasoning={"effort": "low"},
-                text={"verbosity": "low"},
+                reasoning={"effort": self.model_effort.display_name},
+                text={"verbosity": self.model_verbosity.display_name},
             )
             return response.output_text
         except Exception as e:
             print(f"\n[!] API Error: {e}")
             return f"API ERROR: {e}"
 
-    def suggest_edits(self, files: list, context_files: list) -> dict:
-        """Suggests edits for specific files based on provided context files."""
-        suggestions = {}
-
-        for i, file in enumerate(files):
-            print(f"[{i+1}/{len(files)}] Suggesting Edits {file}...")
-            
-            content = self.read_file(file)
-            for context_file in context_files:
-                content += self.read_file(context_file)
-
-            suggestion = self.call_llm(
-                self.summary_prompt,
-                f"File: {file}\n\n{content}"
-            )
-            suggestions[str(file)] = suggestion
-
-        return suggestions
 
     def summarize_files(self, files: list, outdir, indir):
         print("Formatting Files =>")
         for file in tqdm(files):
-            # 'file' is the relative path from 'indir' (e.g., 'test.md' or 'subdir/test.md')
-            in_path = Path(indir) / file
+            in_path = Path(indir) / file if indir else Path(file)
             out_path = Path(outdir) / file
             
             content = self.read_file(in_path)
@@ -110,16 +96,26 @@ class Formater:
             
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(f"{summary}")
-    def run(self):
+
+    def run(self, single_file: str|None = None):
         """Main orchestrator for the analysis process."""
         finder = Finder()
-        print("Enter input files dir:")
-        root = finder.fuzzy_find_dir()
         print("Enter output files dir:")
         outdir = finder.fuzzy_find_dir()
-        if root is None: raise ValueError("Dir invalid")
-        filetype = input("Enter filextension (ex: .md): ")
-        files = [f for f in finder.get_all_files(root) if f.endswith(filetype)]
+
+        files = []
+        root = ""
+        if single_file is None:
+            print("Enter input files dir:")
+            root = finder.fuzzy_find_dir()
+            if root is None: raise ValueError("Dir invalid")
+            
+            filetype = input("Enter file extension (ex: md): ").replace(".", "")
+            files = [f for f in finder.get_all_files(root) if f.endswith(f"{filetype}")]
+        else:
+            print("Running in Single File Mode")
+            files = [single_file]
+            root = None
 
         if not files:
             print("No target files found.")
@@ -130,8 +126,7 @@ class Formater:
 
         self.summarize_files(files, outdir, root)
         print("Done!")
-if __name__ == "__main__":
-    # Instantiate and run
-    analyzer = Formater(model="gpt-5")
-    analyzer.run()
 
+if __name__ == "__main__":
+    analyzer = Formater()
+    analyzer.run()

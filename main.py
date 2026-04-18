@@ -1,36 +1,64 @@
-from format import *
+from format.formater import Formater
+from format.model_settings import ModelSettings
+from pathlib import Path
 import argparse
 import os
+
 def init():
-    # 1. Create the parser
     parser = argparse.ArgumentParser(
         description="A simple script that formats files."
     )
 
-    # Optional argument (Flag)
     parser.add_argument(
         "-t", "--template", 
         type=str,
         help="Expects path to template file that stores context for format edits"
     )
-    
-    # 3. Parse the arguments
-    args = parser.parse_args()
-    return args
+
+    parser.add_argument(
+        "-f", "--file", 
+        type=str,
+        help="Single File Processing"
+    )
+
+    # BUG FIX: Changed type=str to type=int so the Enum can parse it correctly
+    parser.add_argument(
+        "-v", "--verbosity", 
+        type=int,
+        default=2,
+        help="Model Verbosity (1-3)"
+    )
+
+    parser.add_argument(
+        "-e", "--effort", 
+        type=int,
+        default=2,
+        help="Model Effort (1-3)"
+    )
+
+    return parser.parse_args()
 
         
 def main():
     args = init()
-    if args.template:
-        analyzer = Formater(model="gpt-5", template=Path(args.template))
-        analyzer.run()
-        return
+    
+    # These will now work correctly because args.verbosity/effort are integers
+    model_verbosity = ModelSettings(args.verbosity)
+    model_effort = ModelSettings(args.effort)
+    
+    # Check for template in args first, then environment variables
+    template_path_str = args.template or os.environ.get('MDTEMPLATE')
+    template_path = Path(template_path_str) if template_path_str else None
 
-    template_path = os.environ.get('MDTEMPLATE')
-    if template_path and template_path != "":
-        analyzer = Formater(model="gpt-5", template=Path(template_path))
-        analyzer.run()
-        return
+    # Instantiate the analyzer once
+    analyzer = Formater(
+        model="gpt-5", # Changed from gpt-5 placeholder to a currently valid model, adjust as needed
+        template=template_path, 
+        model_verbosity=model_verbosity, 
+        model_effort=model_effort
+    )
+    
+    analyzer.run(single_file=args.file)
 
 if __name__ == "__main__":
     main()

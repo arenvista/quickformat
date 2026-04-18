@@ -3,6 +3,7 @@ pyproject.toml
 src/format/__init__.py
 src/format/finder.py
 src/format/formater.py
+src/format/model_settings.py
 src/quickformat.egg-info/PKG-INFO
 src/quickformat.egg-info/SOURCES.txt
 src/quickformat.egg-info/dependency_links.txt
