@@ -13,7 +13,7 @@ class Formater:
 
     def __init__(
         self,
-        model: str = "gpt-4o", # Adjusted placeholder
+        model: str = "gpt-5.4", # Adjusted placeholder
         max_file_chars: int = 30000,
         exclude_dirs: set|None = None,
         template: Path|None = None,
@@ -29,7 +29,7 @@ class Formater:
         self.exclude_dirs = exclude_dirs or {".venv", "venv", "env", "__pycache__", ".git", ".tox"}
 
         if template is None:
-            self.summary_prompt = (
+             self.template_prompt = (
                 "Read the provided markdown contents and run: clean, split into sections by header, title unnamed theorems, topics, sections etc.\n\n" 
                 "Formatting Rules:\n\n"
                 "- Use $$ $$ for display math.\n\n"
@@ -39,7 +39,7 @@ class Formater:
             )
         else:
             with open(template, 'r') as infile:
-                self.summary_prompt = infile.read()
+                 self.template_prompt = infile.read()
                 
         self.model_effort = model_effort or ModelSettings.MEDIUM
         self.model_verbosity = model_verbosity or ModelSettings.MEDIUM
@@ -79,28 +79,29 @@ class Formater:
             return f"API ERROR: {e}"
 
 
-    def summarize_files(self, files: list, outdir, indir):
+    def process_files(self, files: list, outdir, indir):
         print("Formatting Files =>")
         for file in tqdm(files):
             in_path = Path(indir) / file if indir else Path(file)
-            out_path = Path(outdir) / file
+            out_path = Path(outdir) / Path(file).name
+            print(f"Writing to outpath => {out_path}")
             
             content = self.read_file(in_path)
-            summary = self.call_llm(
-                self.summary_prompt,
+            content_processed = self.call_llm(
+                 self.template_prompt,
                 f"File: {in_path}\n\n{content}"
             )
             
             # Ensure the output directory structure exists before writing
-            out_path.parent.mkdir(parents=True, exist_ok=True)
+            # out_path.parent.mkdir(parents=True, exist_ok=True)
             
             with open(out_path, "w", encoding="utf-8") as f:
-                f.write(f"{summary}")
+                f.write(f"{ content_processed}")
 
     def run(self, single_file: str|None = None):
         """Main orchestrator for the analysis process."""
         finder = Finder()
-        print("Enter output files dir:")
+        print("Where to write your files?")
         outdir = finder.fuzzy_find_dir()
 
         files = []
@@ -122,9 +123,9 @@ class Formater:
             return
 
         print(f"Found {len(files)} files to summarize.\n\t" + "\n\t".join(files))
-        print(f"Summary Prompt => {self.summary_prompt}")
+        print(f" Template Prompt => { self.template_prompt}")
 
-        self.summarize_files(files, outdir, root)
+        self.process_files(files, outdir, root)
         print("Done!")
 
 if __name__ == "__main__":

@@ -21,7 +21,6 @@ def init():
         help="Single File Processing"
     )
 
-    # BUG FIX: Changed type=str to type=int so the Enum can parse it correctly
     parser.add_argument(
         "-v", "--verbosity", 
         type=int,
@@ -52,7 +51,7 @@ def main():
 
     # Instantiate the analyzer once
     analyzer = Formater(
-        model="gpt-5", # Changed from gpt-5 placeholder to a currently valid model, adjust as needed
+        model="gpt-5.4",
         template=template_path, 
         model_verbosity=model_verbosity, 
         model_effort=model_effort
